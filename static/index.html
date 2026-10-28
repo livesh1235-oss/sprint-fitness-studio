@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IronGate · Gym Attendance & Membership System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-200">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent">IronGate</span>
+                            <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-mono">LIVE PRODUCTION</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-none">Gym Attendance & Membership Gate</p>
+                    </div>
+                </div>
+
+                <!-- Live Metrics Bar -->
+                <div class="hidden md:flex items-center gap-4">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="text-slate-500 dark:text-slate-400">Inside Facility:</span>
+                        <strong class="stat-inside-count text-slate-900 dark:text-white font-mono text-sm">--</strong>
+                    </div>
+
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs font-medium">
+                        <span class="text-slate-500 dark:text-slate-400">Today's Total Scans:</span>
+                        <strong class="stat-today-checkins text-slate-900 dark:text-white font-mono text-sm">--</strong>
+                    </div>
+
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs font-medium">
+                        <span class="text-slate-500 dark:text-slate-400">Total Members:</span>
+                        <strong class="stat-total-members text-indigo-600 dark:text-indigo-400 font-mono text-sm">--</strong>
+                    </div>
+                </div>
+
+                <!-- Right Controls -->
+                <div class="flex items-center gap-2.5">
+                    <button id="theme-toggle-btn" type="button" class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-indigo-500 transition shadow-sm" title="Toggle Dark/Light Mode">
+                        <!-- Loaded dynamically -->
+                    </button>
+                    <button type="button" onclick="window.membersCtrl.openAddModal()"
+                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <span>+ Register Member</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs Bar -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-200/60 dark:border-slate-800/60">
+            <nav class="flex space-x-1 py-2 overflow-x-auto">
+                <button type="button" data-tab="scan" class="nav-tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                    <span>Staff Scan Station</span>
+                </button>
+
+                <button type="button" data-tab="inside" class="nav-tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span>Currently Working Out</span>
+                    <span class="stat-inside-count px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-700 font-mono font-bold">--</span>
+                </button>
+
+                <button type="button" data-tab="members" class="nav-tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <span>Members & Plans</span>
+                </button>
+
+                <button type="button" data-tab="attendance" class="nav-tab-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    <span>Attendance Records</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ============================================================== -->
+        <!-- TAB 1: SCAN STATION (STAFF PRIMARY WORKFLOW)                   -->
+        <!-- ============================================================== -->
+        <div id="tab-scan" class="tab-view-container space-y-6">
+
+            <!-- Scan Mode Switcher Bar -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Staff Check-In & Check-Out Desk</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Scan member QR code or barcode. The system automatically records <strong>In-Time</strong> when arriving, and <strong>Out-Time + Workout Duration</strong> when departing.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800/80">
+                    <button type="button" data-mode="auto" class="scan-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white shadow-md">
+                        Auto In/Out
+                    </button>
+                    <button type="button" data-mode="in" class="scan-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        Check-In Only
+                    </button>
+                    <button type="button" data-mode="out" class="scan-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        Check-Out Only
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Scanner Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- Left Column: Camera Viewfinder & Manual Scanner (5 cols) -->
+                <div class="lg:col-span-5 space-y-4">
+
+                    <!-- Real Camera Viewfinder Box -->
+                    <div class="scanner-container aspect-[4/3] flex items-center justify-center relative shadow-lg">
+                        <div class="scanner-reticle-corner tl"></div>
+                        <div class="scanner-reticle-corner tr"></div>
+                        <div class="scanner-reticle-corner bl"></div>
+                        <div class="scanner-reticle-corner br"></div>
+                        <div class="scanner-laser"></div>
+
+                        <!-- Live Webcam Stream -->
+                        <video id="scanner-video" class="w-full h-full object-cover hidden" playsinline autoplay muted></video>
+
+                        <!-- Standby Box -->
+                        <div id="scanner-placeholder" class="text-center p-6 space-y-3 z-10">
+                            <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800 text-indigo-400 flex items-center justify-center border border-slate-700">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-white">Camera Scanner Ready</div>
+                                <div class="text-xs text-slate-400 max-w-xs mt-1">Click the button below to turn on the camera, or scan using a USB barcode reader gun.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Camera Control Button -->
+                    <button id="toggle-camera-btn" type="button"
+                        class="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                        <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        <span>Start Camera Scanner</span>
+                    </button>
+
+                    <!-- Manual Input & Barcode Gun Listener -->
+                    <div class="glass-panel p-4 rounded-2xl space-y-2">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                            USB Scanner / Manual Entry:
+                        </label>
+                        <div class="flex gap-2">
+                            <input id="manual-scan-input" type="text" placeholder="Type Phone, Member ID, or Scan Barcode..."
+                                class="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <button id="manual-scan-submit" type="button"
+                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition">
+                                Enter
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Handheld USB laser barcode/QR guns are supported automatically on scan.</p>
+                    </div>
+
+                </div>
+
+                <!-- Right Column: Scan Result Card & Real-Time Entrant Display (7 cols) -->
+                <div class="lg:col-span-7">
+
+                    <!-- Scan Result Card (Shown on Scan) -->
+                    <div id="scan-result-card" class="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800 hidden">
+                        <!-- Populated dynamically by scanner.js -->
+                    </div>
+
+                    <!-- Scan Standby Empty State -->
+                    <div id="scan-empty-state" class="glass-panel rounded-2xl p-12 text-center space-y-4 border border-dashed border-slate-300 dark:border-slate-800">
+                        <div class="w-20 h-20 mx-auto rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800 dark:text-white">Ready for Member QR Code</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1">
+                                Point the member's phone screen or printed pass at the camera or scan with a USB gun. Member photo, membership validity, in-time, and out-time will appear here instantly.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- TAB 2: CURRENTLY WORKING OUT LIVE BOARD                        -->
+        <!-- ============================================================== -->
+        <div id="tab-inside" class="tab-view-container space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Currently Inside Facility</span>
+                        <span id="inside-header-count" class="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                            0 Members
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Live board of members actively working out. Workout timers update automatically.
+                    </p>
+                </div>
+                <button type="button" onclick="window.attendanceCtrl.loadCurrentlyInside()"
+                    class="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition shadow-sm flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Refresh</span>
+                </button>
+            </div>
+
+            <!-- Inside Members Cards Grid -->
+            <div id="inside-members-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <!-- Loaded dynamically by attendance.js -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="inside-empty-state" class="glass-panel rounded-2xl p-12 text-center space-y-3 border border-slate-200 dark:border-slate-800 hidden">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">No Members Inside Right Now</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                    When members scan in at the Scan Station, their live session card and workout timer will appear here.
+                </p>
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- TAB 3: MEMBERS DIRECTORY & MANAGEMENT                         -->
+        <!-- ============================================================== -->
+        <div id="tab-members" class="tab-view-container space-y-6 hidden">
+            <!-- Header & Filter Bar -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Members & Membership Plans</span>
+                        <span id="members-filtered-count" class="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">--</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Manage gym members, renew subscriptions, view digital pass cards, and share mobile pass links.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.membersCtrl.openAddModal()"
+                        class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <span>Register Member</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search & Filters -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
+                <div class="relative w-full md:w-80">
+                    <input id="member-search-input" type="text" placeholder="Search by name, phone, or ID..."
+                        class="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+
+                <div class="flex items-center gap-1.5 flex-wrap w-full md:w-auto">
+                    <button type="button" data-status="" class="member-filter-pill px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white">All</button>
+                    <button type="button" data-status="active" class="member-filter-pill px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Active</button>
+                    <button type="button" data-status="inside" class="member-filter-pill px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Inside Now</button>
+                    <button type="button" data-status="expiring_soon" class="member-filter-pill px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Expiring Soon</button>
+                    <button type="button" data-status="expired" class="member-filter-pill px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Expired</button>
+                </div>
+            </div>
+
+            <!-- Members Table Card -->
+            <div class="glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="px-6 py-3.5">Member Details</th>
+                                <th class="px-6 py-3.5">Plan</th>
+                                <th class="px-6 py-3.5">Expiry Date</th>
+                                <th class="px-6 py-3.5">Status</th>
+                                <th class="px-6 py-3.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="members-table-body">
+                            <!-- Populated dynamically by members.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- TAB 4: ATTENDANCE RECORDS & LOGS                               -->
+        <!-- ============================================================== -->
+        <div id="tab-attendance" class="tab-view-container space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Attendance Audit History</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                        Complete verified log of member check-in times, check-out times, and workout durations.
+                    </p>
+                </div>
+
+                <button id="export-attendance-csv-btn" type="button"
+                    class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition flex items-center gap-2 shadow-sm">
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>Download CSV Export</span>
+                </button>
+            </div>
+
+            <!-- Filter Pills -->
+            <div class="flex items-center gap-2">
+                <button type="button" data-filter="today" class="attendance-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white">Today</button>
+                <button type="button" data-filter="yesterday" class="attendance-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Yesterday</button>
+                <button type="button" data-filter="7days" class="attendance-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Last 7 Days</button>
+                <button type="button" data-filter="all" class="attendance-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">All Time</button>
+            </div>
+
+            <!-- Attendance Table -->
+            <div class="glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="px-6 py-3.5">Member</th>
+                                <th class="px-6 py-3.5">Date</th>
+                                <th class="px-6 py-3.5">In Time</th>
+                                <th class="px-6 py-3.5">Out Time</th>
+                                <th class="px-6 py-3.5">Duration</th>
+                                <th class="px-6 py-3.5">Session Status</th>
+                                <th class="px-6 py-3.5">Method</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-table-body">
+                            <!-- Populated dynamically by attendance.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ============================================================== -->
+    <!-- MODALS: ADD MEMBER, RENEW, PASS VIEW                           -->
+    <!-- ============================================================== -->
+
+    <!-- Add Member Modal with Real Photo Upload -->
+    <div id="add-member-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-in fade-in duration-200 max-h-[92vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Register Member</h3>
+                <button type="button" onclick="window.membersCtrl.closeAddModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">✕</button>
+            </div>
+
+            <form id="add-member-form" class="space-y-4">
+
+                <!-- Photo Upload Field -->
+                <div class="flex items-center gap-4 p-3 rounded-2xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <img id="add-photo-preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=new" class="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-500 shadow-sm">
+                    <div class="flex-1 space-y-1">
+                        <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Member Photo (Optional)</label>
+                        <input id="add-photo-file" type="file" accept="image/*" class="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-950 dark:file:text-indigo-300">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Full Name *</label>
+                        <input type="text" name="name" required placeholder="Member Full Name"
+                            class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Phone Number *</label>
+                        <input type="text" name="phone" required placeholder="e.g. +1 555-019-2834"
+                            class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Email Address</label>
+                    <input type="email" name="email" placeholder="member@example.com"
+                        class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Membership Plan *</label>
+                        <select name="plan_id" class="plan-select-dropdown w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-medium">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Start Date *</label>
+                        <input id="add-start-date" type="date" name="start_date" required
+                            class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Emergency Contact</label>
+                    <input type="text" name="emergency_contact" placeholder="Contact Name & Phone"
+                        class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Staff Notes</label>
+                    <textarea name="notes" rows="2" placeholder="Locker assignment, medical notes, or personal training details..."
+                        class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" onclick="window.membersCtrl.closeAddModal()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition">Save Member & Generate QR Pass</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Renew Membership Modal -->
+    <div id="renew-member-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Renew Membership</h3>
+                    <div id="renew-member-name" class="text-xs text-indigo-600 dark:text-indigo-400 font-bold mt-0.5"></div>
+                </div>
+                <button type="button" onclick="window.membersCtrl.closeRenewModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">✕</button>
+            </div>
+
+            <form id="renew-member-form" class="space-y-4">
+                <input type="hidden" id="renew-member-id" name="member_id">
+
+                <div id="renew-current-expiry" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-mono text-slate-600 dark:text-slate-300">
+                    Current Expiry: --
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Select Renewal Plan</label>
+                    <select id="renew-plan-select" name="plan_id" class="plan-select-dropdown w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-medium">
+                        <!-- Loaded dynamically -->
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" onclick="window.membersCtrl.closeRenewModal()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition">Confirm Plan Renewal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Member Pass Card & Distribution Modal -->
+    <div id="member-pass-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">Member Digital Pass</h3>
+                <button type="button" onclick="window.membersCtrl.closePassModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">✕</button>
+            </div>
+
+            <!-- Pass Card Display -->
+            <div id="print-pass-container">
+                <div class="gym-card p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold tracking-wider text-indigo-200 uppercase">IRONGATE FITNESS</span>
+                        <span id="pass-member-plan" class="text-xs font-medium text-indigo-300">Annual VIP</span>
+                    </div>
+
+                    <div class="bg-white p-3.5 rounded-2xl flex items-center justify-center shadow-md w-fit mx-auto">
+                        <canvas id="pass-qr-canvas" class="rounded-lg"></canvas>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-2 border-t border-white/10">
+                        <img id="pass-member-photo" src="" class="w-10 h-10 rounded-full object-cover ring-2 ring-white/20">
+                        <div>
+                            <div id="pass-member-name" class="font-bold text-white text-sm">--</div>
+                            <div class="text-[11px] text-indigo-200 font-mono"><span id="pass-member-id">--</span> · <span id="pass-member-phone">--</span></div>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-indigo-200/80 font-mono text-center pt-1 border-t border-white/5">
+                        <span id="pass-member-expiry">Valid Thru: --</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Share Mobile Pass Link Box -->
+            <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-400">Share Pass Link to Member's Phone:</label>
+                <div class="flex gap-1.5">
+                    <input id="pass-share-link" type="text" readonly
+                        class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono text-slate-700 dark:text-slate-300">
+                    <button type="button" onclick="window.membersCtrl.copyPassLink()"
+                        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        <span>Copy</span>
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-400">Send this link to the member via SMS or WhatsApp so they can show this pass on their phone.</p>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <button type="button" onclick="window.membersCtrl.printCurrentPass()"
+                    class="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 transition flex items-center justify-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    <span>Print Physical Pass Card</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Scripts with jsQR real decoding engine -->
+    <script src="/js/jsqr.js"></script>
+    <script src="/js/qrcodelib.js"></script>
+    <script src="/js/audio.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/scanner.js"></script>
+    <script src="/js/members.js"></script>
+    <script src="/js/attendance.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
