@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: irongate-gym
+    name: sprint-fitness-studio
     env: python
     plan: free
     buildCommand: ""

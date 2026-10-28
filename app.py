@@ -281,7 +281,7 @@ def run():
     socketserver.TCPServer.allow_reuse_address = True
     httpd = socketserver.TCPServer(server_address, GymRequestHandler)
     print(f"================================================================")
-    print(f" IronGate Gym Attendance & Membership Server running on port {PORT}")
+    print(f" Sprint Fitness Studio Attendance & Membership Server (Port {PORT})")
     print(f" Open http://localhost:{PORT} in your browser")
     print(f"================================================================")
     try:
