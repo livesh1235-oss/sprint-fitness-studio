@@ -99,8 +99,13 @@ class ScannerController {
             if (video) video.classList.add('hidden');
         } else {
             try {
+                // Support both mobile rear camera and laptop webcams seamlessly
                 this.cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
                 });
                 video.srcObject = this.cameraStream;
                 video.setAttribute('playsinline', true);
@@ -114,10 +119,19 @@ class ScannerController {
                     <span>Turn Off Camera</span>
                 `;
 
+                // Initialize native BarcodeDetector if supported
+                if ('BarcodeDetector' in window && !this.barcodeDetector) {
+                    try {
+                        this.barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+                    } catch (e) {
+                        this.barcodeDetector = null;
+                    }
+                }
+
                 this.startRealCameraScanLoop();
             } catch (err) {
                 console.warn('Camera access issue:', err);
-                window.app.showToast('Please grant camera permissions in your browser to use video scanning.', 'warning');
+                window.app.showToast('Please allow camera permissions in your browser to scan QR passes.', 'warning');
             }
         }
     }
@@ -134,26 +148,39 @@ class ScannerController {
         this.isScanning = false;
     }
 
-    startRealCameraScanLoop() {
+    async startRealCameraScanLoop() {
         if (!this.isScanning) return;
         const video = document.getElementById('scanner-video');
 
-        if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
-            this.canvasElement.height = video.videoHeight;
-            this.canvasElement.width = video.videoWidth;
-            this.canvasCtx.drawImage(video, 0, 0, this.canvasElement.width, this.canvasElement.height);
+        if (video && video.readyState >= video.HAVE_CURRENT_DATA) {
+            // Priority 1: Hardware-accelerated native BarcodeDetector (instant scan)
+            if (this.barcodeDetector && !this.scanCooldown) {
+                try {
+                    const barcodes = await this.barcodeDetector.detect(video);
+                    if (barcodes.length > 0 && barcodes[0].rawValue) {
+                        this.executeScan(barcodes[0].rawValue, 'camera_live_qr');
+                        this.animationFrameId = requestAnimationFrame(() => this.startRealCameraScanLoop());
+                        return;
+                    }
+                } catch (e) {}
+            }
 
-            const imageData = this.canvasCtx.getImageData(0, 0, this.canvasElement.width, this.canvasElement.height);
+            // Priority 2: jsQR Canvas Fallback Engine
+            if (window.jsQR && !this.scanCooldown) {
+                try {
+                    this.canvasElement.height = video.videoHeight || 480;
+                    this.canvasElement.width = video.videoWidth || 640;
+                    this.canvasCtx.drawImage(video, 0, 0, this.canvasElement.width, this.canvasElement.height);
+                    const imageData = this.canvasCtx.getImageData(0, 0, this.canvasElement.width, this.canvasElement.height);
 
-            // Execute jsQR real-time frame analysis
-            if (window.jsQR) {
-                const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
-                });
+                    const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "attemptBoth",
+                    });
 
-                if (code && code.data && !this.scanCooldown) {
-                    this.executeScan(code.data, 'camera_live_qr');
-                }
+                    if (code && code.data) {
+                        this.executeScan(code.data, 'camera_live_qr');
+                    }
+                } catch (e) {}
             }
         }
 

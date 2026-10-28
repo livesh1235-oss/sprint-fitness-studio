@@ -197,6 +197,7 @@ def calculate_member_status(expiry_date_str, current_status):
         return current_status
 
 def get_member_by_qr_or_id(query):
+    import re
     conn = get_connection()
     c = conn.cursor()
     query = query.strip()
@@ -207,6 +208,20 @@ def get_member_by_qr_or_id(query):
     WHERE m.qr_code_token = ? OR m.id = ? OR m.phone = ?
     ''', (query, query, query))
     row = c.fetchone()
+
+    # If no direct match, check if query contains GYM-XXXX pattern (e.g. from pass URLs)
+    if not row:
+        match = re.search(r'(GYM-\d+)', query, re.IGNORECASE)
+        if match:
+            extracted_id = match.group(1).upper()
+            c.execute('''
+            SELECT m.*, p.name as plan_name, p.duration_days, p.price as plan_price
+            FROM members m
+            LEFT JOIN plans p ON m.plan_id = p.id
+            WHERE m.id = ? OR m.qr_code_token = ?
+            ''', (extracted_id, f"QR-{extracted_id}"))
+            row = c.fetchone()
+
     conn.close()
     if not row:
         return None

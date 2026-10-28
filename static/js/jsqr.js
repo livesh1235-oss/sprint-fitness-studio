@@ -1,7 +1,3 @@
-Source: https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js
-
----
-
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
