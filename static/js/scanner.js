@@ -188,33 +188,39 @@ class ScannerController {
     }
 
     async executeScan(token, method = 'qr_scan') {
-        if (this.scanCooldown) return;
+        if (method !== 'manual_search' && this.scanCooldown) return;
         this.scanCooldown = true;
-        setTimeout(() => { this.scanCooldown = false; }, 2000);
+        setTimeout(() => { this.scanCooldown = false; }, 1200);
 
         try {
             const res = await api.scan(token, this.scanMode, method);
             if (!res.success) {
-                window.soundFx.playAlert();
-                window.app.showToast(res.error || 'Scan unrecognized.', 'error');
+                if (window.soundFx) window.soundFx.playAlert();
+                window.app.showToast(res.error || 'Member not found.', 'error');
                 return;
             }
 
             // Audio cues
-            if (res.action === 'in') {
-                if (res.is_expired) {
-                    window.soundFx.playAlert();
+            if (window.soundFx) {
+                if (res.action === 'in') {
+                    if (res.is_expired) {
+                        window.soundFx.playAlert();
+                    } else {
+                        window.soundFx.playCheckIn();
+                    }
+                } else if (res.action === 'out') {
+                    window.soundFx.playCheckOut();
                 } else {
-                    window.soundFx.playCheckIn();
+                    window.soundFx.playAlert();
                 }
-            } else if (res.action === 'out') {
-                window.soundFx.playCheckOut();
-            } else {
-                window.soundFx.playAlert();
             }
 
             // Display entrant profile card
             this.displayScanResult(res);
+
+            // Success feedback toast
+            const actionText = res.action === 'in' ? 'Checked IN' : 'Checked OUT';
+            window.app.showToast(`✅ ${actionText}: ${res.member.name} (${res.member.id})`, 'success');
 
             // Refresh live board and stats
             window.app.refreshDashboardData();

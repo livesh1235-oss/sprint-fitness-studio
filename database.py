@@ -201,26 +201,44 @@ def get_member_by_qr_or_id(query):
     conn = get_connection()
     c = conn.cursor()
     query = query.strip()
+    clean_q = query.upper()
+
+    # 1. Direct match (case-insensitive) on token, ID, phone, or name
     c.execute('''
     SELECT m.*, p.name as plan_name, p.duration_days, p.price as plan_price
     FROM members m
     LEFT JOIN plans p ON m.plan_id = p.id
-    WHERE m.qr_code_token = ? OR m.id = ? OR m.phone = ?
-    ''', (query, query, query))
+    WHERE UPPER(m.qr_code_token) = ? 
+       OR UPPER(m.id) = ? 
+       OR m.phone = ?
+       OR UPPER(m.name) LIKE ?
+    ''', (clean_q, clean_q, query, f"%{clean_q}%"))
     row = c.fetchone()
 
-    # If no direct match, check if query contains GYM-XXXX pattern (e.g. from pass URLs)
+    # 2. Extract GYM-XXXX pattern (e.g. from pass URLs or qr codes)
     if not row:
-        match = re.search(r'(GYM-\d+)', query, re.IGNORECASE)
+        match = re.search(r'(GYM-?\d+)', clean_q)
         if match:
-            extracted_id = match.group(1).upper()
+            raw_id = match.group(1)
+            formatted_id = raw_id if '-' in raw_id else raw_id.replace('GYM', 'GYM-')
             c.execute('''
             SELECT m.*, p.name as plan_name, p.duration_days, p.price as plan_price
             FROM members m
             LEFT JOIN plans p ON m.plan_id = p.id
-            WHERE m.id = ? OR m.qr_code_token = ?
-            ''', (extracted_id, f"QR-{extracted_id}"))
+            WHERE UPPER(m.id) = ? OR UPPER(m.qr_code_token) = ?
+            ''', (formatted_id, f"QR-{formatted_id}"))
             row = c.fetchone()
+
+    # 3. Numeric ID only (e.g. user typed "1009", "1007", "1001")
+    if not row and clean_q.isdigit():
+        num_id = f"GYM-{clean_q}"
+        c.execute('''
+        SELECT m.*, p.name as plan_name, p.duration_days, p.price as plan_price
+        FROM members m
+        LEFT JOIN plans p ON m.plan_id = p.id
+        WHERE UPPER(m.id) = ? OR UPPER(m.qr_code_token) = ? OR m.phone LIKE ?
+        ''', (num_id, f"QR-{num_id}", f"%{clean_q}%"))
+        row = c.fetchone()
 
     conn.close()
     if not row:

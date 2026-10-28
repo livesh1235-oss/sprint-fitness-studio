@@ -444,20 +444,22 @@
     // Public QR Code Generator Helper
     window.QRCodeLib = {
         renderCanvas: function(canvas, text, options = {}) {
-            const size = options.size || 200;
-            const darkColor = options.darkColor || "#0f172a";
+            const size = options.size || 220;
+            const darkColor = options.darkColor || "#000000";
             const lightColor = options.lightColor || "#ffffff";
+            const margin = options.margin !== undefined ? options.margin : 2; // Standard QR quiet zone
 
-            const qr = new QRCodeModel(0, 0); // L level
+            const qr = new QRCodeModel(0, 1); // Level M (15% error correction for reliable camera scans)
             qr.addData(text);
             qr.make();
 
             const count = qr.getModuleCount();
+            const totalModules = count + (margin * 2);
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext('2d');
-            const tileW = size / count;
-            const tileH = size / count;
+            const tileW = size / totalModules;
+            const tileH = size / totalModules;
 
             ctx.fillStyle = lightColor;
             ctx.fillRect(0, 0, size, size);
@@ -466,7 +468,12 @@
             for (let r = 0; r < count; r++) {
                 for (let c = 0; c < count; c++) {
                     if (qr.isDark(r, c)) {
-                        ctx.fillRect(Math.round(c * tileW), Math.round(r * tileH), Math.ceil(tileW), Math.ceil(tileH));
+                        ctx.fillRect(
+                            Math.floor((c + margin) * tileW),
+                            Math.floor((r + margin) * tileH),
+                            Math.ceil(tileW),
+                            Math.ceil(tileH)
+                        );
                     }
                 }
             }
