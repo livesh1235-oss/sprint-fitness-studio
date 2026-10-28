@@ -1,6 +1,8 @@
-# IronGate · Gym Attendance & Access Control Platform
+# Sprint Fitness Studio · Attendance & Access Control Platform
 
-A modern, high-performance, and user-friendly web application for gym attendance tracking and membership management. Built with Python 3.13 and modern ES6+ web technologies with zero external dependencies.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/livesh1235-oss/sprint-fitness-studio)
+
+A modern, high-performance, and secure web application for Sprint Fitness Studio gym attendance tracking and membership management. Built with Python 3 and modern ES6+ web technologies with zero external dependencies.
 
 ---
 
