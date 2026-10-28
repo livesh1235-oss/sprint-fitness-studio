@@ -3,86 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Member Digital Pass · Sprint Fitness Studio</title>
+    <title>Sprint Fitness Studio · Member Entry Pass</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/app.css">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#020617">
 </head>
-<body class="h-full bg-slate-950 text-white flex flex-col justify-between p-4 antialiased selection:bg-indigo-500">
+<body class="min-h-full bg-slate-950 text-white flex flex-col items-center justify-center p-3 antialiased selection:bg-indigo-500">
 
-    <div class="max-w-sm w-full mx-auto space-y-4 my-auto">
+    <div class="max-w-sm w-full mx-auto space-y-3 py-2">
 
-        <!-- Top Gym Header -->
-        <div class="flex items-center justify-between px-2">
-            <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        <!-- Top Gym Brand Header -->
+        <div class="flex items-center justify-between px-1">
+            <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 </div>
                 <div>
-                    <h1 class="text-sm font-extrabold tracking-wider uppercase text-white">Sprint Fitness Studio</h1>
-                    <p class="text-[10px] text-indigo-300 font-mono tracking-widest">OFFICIAL MEMBER PASS</p>
+                    <h1 class="text-sm font-black tracking-wider uppercase text-white leading-tight">Sprint Fitness Studio</h1>
+                    <p class="text-[10px] text-orange-400 font-mono tracking-widest font-semibold">DIGITAL ACCESS PASS</p>
                 </div>
             </div>
-            <div id="pass-live-indicator" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>LIVE PASS</span>
+            <div id="card-status-pill" class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ACTIVE
             </div>
         </div>
 
-        <!-- Main Digital Gym Pass Card -->
-        <div class="gym-card p-6 space-y-5 border border-white/10 shadow-2xl">
+        <!-- High-Contrast Clean Pass Card (Optimized for Instant Scanner Reading) -->
+        <div id="pass-card-container" class="gym-card p-5 space-y-4 border border-white/10 shadow-2xl rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
 
-            <!-- Card Header -->
-            <div class="flex items-center justify-between">
-                <span id="card-status-pill" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    ACTIVE MEMBER
-                </span>
-                <span id="card-plan-name" class="text-xs font-semibold text-indigo-200">
-                    Loading...
-                </span>
-            </div>
-
-            <!-- Crisp QR Code Box -->
-            <div class="bg-white p-4 rounded-2xl flex items-center justify-center shadow-2xl w-fit mx-auto border-4 border-slate-100">
-                <canvas id="member-qr-canvas" class="rounded-lg"></canvas>
-            </div>
-
-            <div class="text-center space-y-1">
-                <p class="text-xs font-semibold text-white tracking-wide">Present this QR Code at Front Desk</p>
-                <p class="text-[11px] text-indigo-200/70 font-mono">Staff will scan for Check-In & Check-Out</p>
-            </div>
-
-            <!-- Member Details -->
-            <div class="flex items-center gap-3.5 pt-3 border-t border-white/10">
-                <img id="card-member-photo" src="https://api.dicebear.com/7.x/avataaars/svg?seed=pass" class="w-14 h-14 rounded-2xl object-cover ring-2 ring-white/20 shadow-md">
+            <!-- Member Info Header -->
+            <div class="flex items-center gap-3">
+                <img id="card-member-photo" src="https://api.dicebear.com/7.x/avataaars/svg?seed=pass" class="w-12 h-12 rounded-xl object-cover ring-2 ring-white/20 shadow-md bg-slate-800">
                 <div class="flex-1 min-w-0">
-                    <div id="card-member-name" class="font-bold text-white text-base truncate">Member Name</div>
-                    <div class="text-xs font-mono text-indigo-200 mt-0.5">
-                        <span id="card-member-id">GYM-XXXX</span> · <span id="card-member-phone">Phone</span>
+                    <h2 id="card-member-name" class="font-extrabold text-white text-base truncate leading-tight">Loading Member...</h2>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span id="card-member-id" class="px-1.5 py-0.5 rounded bg-white/10 text-orange-300 font-mono font-bold text-[11px]">GYM-XXXX</span>
+                        <span id="card-plan-name" class="text-xs text-slate-300 font-medium truncate">Annual Plan</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Expiry & Attendance Stats -->
-            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10 text-xs">
-                <div class="p-2.5 rounded-xl bg-white/5">
-                    <span class="text-slate-400 text-[10px] uppercase font-semibold">Valid Until</span>
-                    <div id="card-member-expiry" class="font-mono font-bold text-white mt-0.5">--</div>
-                    <div id="card-days-left" class="text-[10px] text-emerald-400 font-semibold mt-0.5">-- days left</div>
+            <!-- Big High-Contrast QR Code Box (Zero Glare, Fast Cam Scan) -->
+            <div class="bg-white p-4 rounded-2xl flex flex-col items-center justify-center shadow-xl border-4 border-slate-100/90 mx-auto w-full max-w-[270px]">
+                <canvas id="member-qr-canvas" class="rounded-lg max-w-full"></canvas>
+                <div class="mt-2 text-center">
+                    <span class="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Scan at Reception</span>
                 </div>
-                <div class="p-2.5 rounded-xl bg-white/5">
-                    <span class="text-slate-400 text-[10px] uppercase font-semibold">Workouts Logged</span>
-                    <div id="card-member-visits" class="font-mono font-bold text-indigo-300 mt-0.5">0</div>
-                    <div class="text-[10px] text-slate-400 mt-0.5">Total sessions</div>
+            </div>
+
+            <!-- Expiry & Validity Info -->
+            <div class="flex items-center justify-between px-2 py-2 rounded-xl bg-white/5 border border-white/5 text-xs">
+                <div>
+                    <span class="text-slate-400 text-[10px] uppercase font-semibold">Valid Thru:</span>
+                    <div id="card-member-expiry" class="font-mono font-bold text-white text-xs mt-0.5">--</div>
+                </div>
+                <div class="text-right">
+                    <span class="text-slate-400 text-[10px] uppercase font-semibold">Status:</span>
+                    <div id="card-days-left" class="font-bold text-emerald-400 text-xs mt-0.5">Active</div>
                 </div>
             </div>
 
         </div>
 
-        <!-- Quick Access Hints -->
-        <div class="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-1">
-            <p class="text-xs text-slate-300">💡 <strong>Tip for Members:</strong></p>
-            <p class="text-[11px] text-slate-400">Save this page to your phone's Home Screen or take a screenshot for instant access when entering the gym.</p>
+        <!-- 1-Tap Save To Photos / Quick Actions -->
+        <div class="space-y-2 pt-1">
+            <button type="button" onclick="downloadPassAsImage()"
+                class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span>Save Pass to Photo Gallery</span>
+            </button>
+            <p class="text-[11px] text-slate-400 text-center">
+                💡 <strong>Tip:</strong> Tap above to save to your photo gallery. You can just show the photo at the gym door!
+            </p>
         </div>
 
     </div>
@@ -90,58 +82,59 @@
     <!-- Scripts -->
     <script src="/js/qrcodelib.js"></script>
     <script>
+        let currentMember = null;
+
         async function loadPass() {
             const urlParams = new URLSearchParams(window.location.search);
-            const memberId = urlParams.get('id') || 'GYM-1001';
+            const memberId = urlParams.get('id') || 'GYM-1009';
 
             try {
                 const res = await fetch(`/api/members/${memberId}`);
                 if (!res.ok) {
                     document.body.innerHTML = `
                         <div class="max-w-sm mx-auto my-auto p-6 text-center space-y-3">
-                            <div class="text-red-400 text-3xl">⚠️</div>
-                            <h2 class="text-lg font-bold">Member Not Found</h2>
-                            <p class="text-xs text-slate-400">Please verify the Member ID with gym reception.</p>
+                            <div class="text-red-400 text-4xl">⚠️</div>
+                            <h2 class="text-lg font-bold text-white">Member Pass Not Found</h2>
+                            <p class="text-xs text-slate-400">Please check with Sprint Fitness Studio reception.</p>
                         </div>
                     `;
                     return;
                 }
                 const m = await res.json();
+                currentMember = m;
 
                 document.getElementById('card-member-name').innerText = m.name;
                 document.getElementById('card-member-id').innerText = m.id;
-                document.getElementById('card-member-phone').innerText = m.phone;
                 document.getElementById('card-plan-name').innerText = m.plan_name;
                 document.getElementById('card-member-expiry').innerText = m.expiry_date;
                 document.getElementById('card-member-photo').src = m.photo_url;
-                document.getElementById('card-member-visits').innerText = m.total_completed_workouts;
 
                 const daysLeftEl = document.getElementById('card-days-left');
                 const statusPill = document.getElementById('card-status-pill');
 
                 if (m.computed_status === 'active') {
-                    statusPill.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                    statusPill.className = 'px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
                     statusPill.innerText = 'ACTIVE MEMBER';
-                    daysLeftEl.innerText = `${m.days_left} days remaining`;
-                    daysLeftEl.className = 'text-[10px] text-emerald-400 font-semibold mt-0.5';
+                    daysLeftEl.innerText = `${m.days_left} Days Left`;
+                    daysLeftEl.className = 'font-bold text-emerald-400 text-xs mt-0.5';
                 } else if (m.computed_status === 'expiring_soon') {
-                    statusPill.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                    statusPill.className = 'px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30';
                     statusPill.innerText = `EXPIRING (${m.days_left}d)`;
-                    daysLeftEl.innerText = `${m.days_left} days left`;
-                    daysLeftEl.className = 'text-[10px] text-amber-400 font-semibold mt-0.5';
+                    daysLeftEl.innerText = `${m.days_left} Days Left`;
+                    daysLeftEl.className = 'font-bold text-amber-400 text-xs mt-0.5';
                 } else {
-                    statusPill.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/30';
-                    statusPill.innerText = 'MEMBERSHIP EXPIRED';
-                    daysLeftEl.innerText = `${Math.abs(m.days_left)} days overdue`;
-                    daysLeftEl.className = 'text-[10px] text-red-400 font-semibold mt-0.5';
+                    statusPill.className = 'px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/30';
+                    statusPill.innerText = 'EXPIRED';
+                    daysLeftEl.innerText = 'Expired';
+                    daysLeftEl.className = 'font-bold text-red-400 text-xs mt-0.5';
                 }
 
-                // Render High-Resolution QR Code
+                // Render High-Resolution QR Code (Large 230px, crisp edges)
                 const canvas = document.getElementById('member-qr-canvas');
                 if (canvas && window.QRCodeLib) {
                     window.QRCodeLib.renderCanvas(canvas, m.qr_code_token, {
-                        size: 210,
-                        darkColor: '#090d16',
+                        size: 230,
+                        darkColor: '#000000',
                         lightColor: '#ffffff'
                     });
                 }
@@ -149,6 +142,64 @@
             } catch (err) {
                 console.error(err);
             }
+        }
+
+        function downloadPassAsImage() {
+            if (!currentMember) return;
+            const qrCanvas = document.getElementById('member-qr-canvas');
+            if (!qrCanvas) return;
+
+            // Generate crisp composite Pass Card image
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = 600;
+            exportCanvas.height = 800;
+            const ctx = exportCanvas.getContext('2d');
+
+            // Background gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, 800);
+            bgGrad.addColorStop(0, '#090d16');
+            bgGrad.addColorStop(1, '#020617');
+            ctx.fillStyle = bgGrad;
+            ctx.roundRect ? ctx.roundRect(0, 0, 600, 800, 32) : ctx.rect(0, 0, 600, 800);
+            ctx.fill();
+
+            // Brand Header
+            ctx.fillStyle = '#f97316';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('SPRINT FITNESS STUDIO', 300, 60);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 26px sans-serif';
+            ctx.fillText('OFFICIAL DIGITAL PASS', 300, 95);
+
+            // White QR Code Card
+            ctx.fillStyle = '#ffffff';
+            if (ctx.roundRect) ctx.roundRect(80, 130, 440, 440, 24);
+            else ctx.fillRect(80, 130, 440, 440);
+            ctx.fill();
+
+            // Draw QR into white card
+            ctx.drawImage(qrCanvas, 120, 170, 360, 360);
+
+            // Member Info at bottom
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px sans-serif';
+            ctx.fillText(currentMember.name, 300, 630);
+
+            ctx.fillStyle = '#f97316';
+            ctx.font = 'bold 18px monospace';
+            ctx.fillText(`${currentMember.id}  ·  ${currentMember.plan_name}`, 300, 665);
+
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText(`● ACTIVE MEMBER · Valid Until ${currentMember.expiry_date}`, 300, 710);
+
+            // Trigger download
+            const link = document.createElement('a');
+            link.download = `SprintPass_${currentMember.id}_${currentMember.name.replace(/\s+/g, '_')}.png`;
+            link.href = exportCanvas.toDataURL('image/png');
+            link.click();
         }
 
         document.addEventListener('DOMContentLoaded', loadPass);

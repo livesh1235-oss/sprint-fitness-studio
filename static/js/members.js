@@ -338,6 +338,7 @@ class MembersController {
                 });
             }
 
+            this.currentPassMember = member;
             modal.classList.remove('hidden');
         } catch (err) {
             console.error('Error opening pass modal:', err);
@@ -347,6 +348,7 @@ class MembersController {
     closePassModal() {
         const modal = document.getElementById('member-pass-modal');
         if (modal) modal.classList.add('hidden');
+        this.currentPassMember = null;
     }
 
     copyPassLink() {
@@ -354,11 +356,78 @@ class MembersController {
         if (passLinkInput) {
             passLinkInput.select();
             navigator.clipboard.writeText(passLinkInput.value).then(() => {
-                window.app.showToast('Member pass link copied! You can send it via WhatsApp or SMS.', 'success');
+                window.app.showToast('Member pass link copied! Ready to share.', 'success');
             }).catch(() => {
                 window.app.showToast('Link ready in input box.', 'info');
             });
         }
+    }
+
+    sendWhatsAppPass() {
+        if (!this.currentPassMember) return;
+        const passLink = document.getElementById('pass-share-link')?.value || '';
+        let phone = (this.currentPassMember.phone || '').replace(/[^0-9]/g, '');
+        if (phone.length === 10) phone = '91' + phone;
+        const msg = `Hello ${this.currentPassMember.name}! 💪\n\nHere is your official digital entry pass for Sprint Fitness Studio:\n👉 ${passLink}\n\nPlease tap the link, save the QR pass to your phone gallery, and show it at reception when entering. See you at the gym! 🏋️‍♂️`;
+        const waUrl = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(waUrl, '_blank');
+    }
+
+    downloadPassImage() {
+        if (!this.currentPassMember) return;
+        const qrCanvas = document.getElementById('pass-qr-canvas');
+        if (!qrCanvas) return;
+
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = 600;
+        exportCanvas.height = 800;
+        const ctx = exportCanvas.getContext('2d');
+
+        // Background
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, 800);
+        bgGrad.addColorStop(0, '#090d16');
+        bgGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = bgGrad;
+        if (ctx.roundRect) ctx.roundRect(0, 0, 600, 800, 32);
+        else ctx.rect(0, 0, 600, 800);
+        ctx.fill();
+
+        // Header
+        ctx.fillStyle = '#f97316';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('SPRINT FITNESS STUDIO', 300, 60);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 26px sans-serif';
+        ctx.fillText('OFFICIAL DIGITAL PASS', 300, 95);
+
+        // White card for QR
+        ctx.fillStyle = '#ffffff';
+        if (ctx.roundRect) ctx.roundRect(80, 130, 440, 440, 24);
+        else ctx.fillRect(80, 130, 440, 440);
+        ctx.fill();
+
+        ctx.drawImage(qrCanvas, 120, 170, 360, 360);
+
+        // Member Details
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillText(this.currentPassMember.name, 300, 630);
+
+        ctx.fillStyle = '#f97316';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText(`${this.currentPassMember.id}  ·  ${this.currentPassMember.plan_name}`, 300, 665);
+
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(`● ACTIVE MEMBER · Valid Until ${this.currentPassMember.expiry_date}`, 300, 710);
+
+        const a = document.createElement('a');
+        a.download = `SprintPass_${this.currentPassMember.id}_${this.currentPassMember.name.replace(/\s+/g, '_')}.png`;
+        a.href = exportCanvas.toDataURL('image/png');
+        a.click();
+        window.app.showToast('Pass card image downloaded successfully!', 'success');
     }
 
     printCurrentPass() {
