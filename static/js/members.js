@@ -314,15 +314,17 @@ class MembersController {
             document.getElementById('pass-member-expiry').innerText = `Valid Thru: ${member.expiry_date}`;
             document.getElementById('pass-member-photo').src = member.photo_url;
 
-            let host = window.location.host;
-            try {
-                const net = await api.getNetworkInfo();
-                if (net && net.lan_ip) {
-                    host = `${net.lan_ip}:${net.port || 8080}`;
-                }
-            } catch (e) {}
-
-            const passUrl = `http://${host}/pass?id=${member.id}`;
+            // If accessing via cloud or tunnel domain, preserve the public HTTPS origin
+            let passUrl = `${window.location.origin}/pass?id=${member.id}`;
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (isLocal) {
+                try {
+                    const net = await api.getNetworkInfo();
+                    if (net && net.lan_ip) {
+                        passUrl = `http://${net.lan_ip}:${net.port || 8080}/pass?id=${member.id}`;
+                    }
+                } catch (e) {}
+            }
             const passLinkInput = document.getElementById('pass-share-link');
             if (passLinkInput) passLinkInput.value = passUrl;
 

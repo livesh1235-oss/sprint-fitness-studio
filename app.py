@@ -9,6 +9,10 @@ import database
 PORT = int(os.environ.get('PORT', 8080))
 STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
 
+# Support Render, Railway, and other cloud hosts
+RENDER_EXTERNAL_URL = os.environ.get('RENDER_EXTERNAL_URL', '')
+RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+
 MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
@@ -24,13 +28,25 @@ MIME_TYPES = {
 
 def get_lan_ip():
     try:
-        import subprocess
-        ip = subprocess.check_output(['ipconfig', 'getifaddr', 'en0']).decode().strip()
-        if ip:
-            return ip
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
     except Exception:
-        pass
-    return '192.168.1.6'
+        return '127.0.0.1'
+
+def get_public_url():
+    """Get the public URL of this deployment (cloud URL or LAN IP for local)."""
+    # Render.com
+    if RENDER_EXTERNAL_URL:
+        return RENDER_EXTERNAL_URL.rstrip('/')
+    # Railway.app
+    if RAILWAY_PUBLIC_DOMAIN:
+        return f'https://{RAILWAY_PUBLIC_DOMAIN}'
+    # Local - try LAN IP
+    return f'http://{get_lan_ip()}:{PORT}'
 
 class GymRequestHandler(http.server.BaseHTTPRequestHandler):
     def send_json(self, data, status_code=200):
@@ -47,8 +63,14 @@ class GymRequestHandler(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
 
     def do_GET(self):
