@@ -1,0 +1,1 @@
+# IronGate uses Python 3.13 standard library (zero external dependencies required)

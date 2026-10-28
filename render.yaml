@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: irongate-gym
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: "python3 app.py"
+    envVars:
+      - key: PORT
+        value: 10000
