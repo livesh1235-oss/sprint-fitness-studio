@@ -301,22 +301,34 @@ class ScannerController {
                 this.html5QrCode = new Html5Qrcode("qr-reader");
             }
 
-            // Reveal container first so Html5Qrcode can read element dimensions
             if (placeholder) placeholder.classList.add('hidden');
-            if (readerBox) readerBox.classList.remove('hidden');
 
-            const cameraConfig = this.selectedCameraId
-                ? { deviceId: { exact: this.selectedCameraId } }
-                : { facingMode: this.currentFacingMode };
+            // Find best deviceId if available
+            let cameraConfig;
+            if (this.selectedCameraId) {
+                cameraConfig = { deviceId: { exact: this.selectedCameraId } };
+            } else if (this.availableCameras && this.availableCameras.length > 0) {
+                const backCams = this.availableCameras.filter(d => {
+                    const l = (d.label || '').toLowerCase();
+                    return l.includes('back') || l.includes('rear') || l.includes('environment');
+                });
+                const mainBackCam = backCams.find(d => {
+                    const l = (d.label || '').toLowerCase();
+                    return !l.includes('wide') && !l.includes('0.5') && !l.includes('ultra');
+                }) || backCams[0];
 
-            // Notice: DO NOT lock aspectRatio! This avoids OverconstrainedError on iPhone Safari and Android!
+                if (this.currentFacingMode === 'environment' && mainBackCam) {
+                    cameraConfig = { deviceId: { exact: mainBackCam.id } };
+                } else {
+                    cameraConfig = { facingMode: this.currentFacingMode };
+                }
+            } else {
+                cameraConfig = { facingMode: this.currentFacingMode };
+            }
+
+            // Omit qrbox to scan the full video frame & prevent dimension check crashes
             const scanConfig = {
                 fps: 20,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const qrboxSize = Math.floor(minEdge * 0.75);
-                    return { width: Math.max(220, qrboxSize), height: Math.max(220, qrboxSize) };
-                },
                 disableFlip: false
             };
 
@@ -325,21 +337,15 @@ class ScannerController {
             };
 
             const onError = () => {
-                // Normal per-frame attempt, ignored
+                // Normal per-frame non-match
             };
 
             try {
                 await this.html5QrCode.start(cameraConfig, scanConfig, onSuccess, onError);
             } catch (initialErr) {
                 console.warn('Initial camera config failed, attempting fallback...', initialErr);
-                // Fallback 1: If environment camera failed (e.g. laptop with only front camera), try front camera
-                if (this.currentFacingMode === 'environment' && !this.selectedCameraId) {
-                    this.currentFacingMode = 'user';
-                    await this.html5QrCode.start({ facingMode: "user" }, scanConfig, onSuccess, onError);
-                } else {
-                    // Fallback 2: Any default camera without constraints
-                    await this.html5QrCode.start(true, scanConfig, onSuccess, onError);
-                }
+                const fallbackFacing = this.currentFacingMode === 'environment' ? 'user' : 'environment';
+                await this.html5QrCode.start({ facingMode: fallbackFacing }, scanConfig, onSuccess, onError);
             }
 
             this.isScanning = true;
@@ -353,7 +359,7 @@ class ScannerController {
                 statusIndicator.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-mono animate-pulse';
             }
 
-            this.enumerateAvailableCameras();
+            await this.enumerateAvailableCameras();
             window.app.showToast('Camera active! Point at member QR pass.', 'success');
 
         } catch (err) {
@@ -385,7 +391,6 @@ class ScannerController {
         const statusIndicator = document.getElementById('camera-status-indicator');
 
         if (readerBox) {
-            readerBox.classList.add('hidden');
             readerBox.innerHTML = '';
         }
         if (placeholder) placeholder.classList.remove('hidden');
