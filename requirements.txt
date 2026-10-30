@@ -1,2 +1,2 @@
-# IronGate Gym System - Zero External Dependencies
-# Uses Python 3.8+ standard library only
+qrcode>=8.0
+pillow>=10.0

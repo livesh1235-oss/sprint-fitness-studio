@@ -288,68 +288,90 @@ class ScannerController {
     async startCamera() {
         if (this.isScanning) return;
 
-        const video = document.getElementById('scanner-video');
+        const readerDiv = document.getElementById('qr-reader');
         const placeholder = document.getElementById('qr-reader-placeholder');
         const reticle = document.getElementById('camera-reticle');
         const btnText = document.getElementById('toggle-camera-text');
         const toggleBtn = document.getElementById('toggle-camera-btn');
         const statusIndicator = document.getElementById('camera-status-indicator');
 
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            window.app.showToast('Camera access not supported on this browser. Use HTTPS link.', 'error');
+        if (!window.Html5Qrcode) {
+            window.app.showToast('Scanner library initializing... please try again.', 'info');
             return;
         }
 
         try {
-            // Flexible unconstrained camera requests (ideal constraints never throw OverconstrainedError)
-            let constraints;
-            if (this.selectedCameraId) {
-                constraints = {
-                    video: { deviceId: { exact: this.selectedCameraId } },
-                    audio: false
-                };
-            } else {
-                constraints = {
-                    video: {
-                        facingMode: { ideal: this.currentFacingMode },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                };
+            if (!this.html5QrCode) {
+                this.html5QrCode = new Html5Qrcode("qr-reader");
             }
+
+            // Reveal scanner container
+            if (placeholder) placeholder.classList.add('hidden');
+            if (readerDiv) readerDiv.classList.remove('hidden');
+            if (reticle) reticle.classList.remove('hidden');
+
+            // 1. Detect hardware cameras to select direct device ID
+            let chosenCameraId = null;
+            try {
+                const devices = await Html5Qrcode.getCameras();
+                if (devices && devices.length > 0) {
+                    this.availableCameras = devices;
+                    this.updateCameraDropdown(devices);
+
+                    if (this.selectedCameraId) {
+                        chosenCameraId = this.selectedCameraId;
+                    } else if (this.currentFacingMode === 'environment') {
+                        // Find standard back/rear camera (skip ultra-wide / macro)
+                        const rearCameras = devices.filter(d => /back|rear|environment/i.test(d.label));
+                        if (rearCameras.length > 0) {
+                            const standardRear = rearCameras.find(d => !/wide|ultra|0\.5|macro/i.test(d.label)) || rearCameras[0];
+                            chosenCameraId = standardRear.id;
+                        } else {
+                            // On iOS, the last camera in list is typically the main rear camera
+                            chosenCameraId = devices[devices.length - 1].id;
+                        }
+                    } else {
+                        const frontCamera = devices.find(d => /front|user|selfie/i.test(d.label)) || devices[0];
+                        chosenCameraId = frontCamera.id;
+                    }
+                }
+            } catch (camErr) {
+                console.warn('Camera enumeration note:', camErr);
+            }
+
+            // 2. Camera configuration - pass deviceId if available, else ideal facingMode
+            const cameraConfig = chosenCameraId
+                ? { deviceId: { exact: chosenCameraId } }
+                : { facingMode: this.currentFacingMode };
+
+            // 3. Scan configuration with dynamic responsive QR box (ZXing hybrid binarizer)
+            const scanConfig = {
+                fps: 20,
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    const boxSize = Math.floor(minEdge * 0.72);
+                    return { width: Math.max(180, boxSize), height: Math.max(180, boxSize) };
+                },
+                disableFlip: false
+            };
+
+            const onScanSuccess = (decodedText) => {
+                if (!decodedText || this.scanCooldown) return;
+                this.scanCooldown = true;
+                setTimeout(() => { this.scanCooldown = false; }, 2000);
+                this.executeScan(decodedText, 'camera_live_qr');
+            };
+
+            const onScanError = () => {
+                // Per-frame non-match
+            };
 
             try {
-                this.cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-            } catch (firstErr) {
-                console.warn('Initial camera constraint failed, trying basic facingMode:', firstErr);
-                try {
-                    this.cameraStream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: this.currentFacingMode },
-                        audio: false
-                    });
-                } catch (secondErr) {
-                    console.warn('Second attempt failed, trying any video stream:', secondErr);
-                    this.cameraStream = await navigator.mediaDevices.getUserMedia({
-                        video: true,
-                        audio: false
-                    });
-                }
+                await this.html5QrCode.start(cameraConfig, scanConfig, onScanSuccess, onScanError);
+            } catch (startErr) {
+                console.warn('Initial camera start failed, attempting facingMode fallback:', startErr);
+                await this.html5QrCode.start({ facingMode: this.currentFacingMode }, scanConfig, onScanSuccess, onScanError);
             }
-
-            if (video) {
-                video.srcObject = this.cameraStream;
-                video.setAttribute('playsinline', 'true');
-                video.setAttribute('webkit-playsinline', 'true');
-                video.muted = true;
-                video.autoplay = true;
-
-                await video.play();
-                video.classList.remove('hidden');
-            }
-
-            if (placeholder) placeholder.classList.add('hidden');
-            if (reticle) reticle.classList.remove('hidden');
 
             this.isScanning = true;
             if (btnText) btnText.innerText = 'Stop Camera';
@@ -362,58 +384,45 @@ class ScannerController {
                 statusIndicator.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-mono animate-pulse';
             }
 
-            // Enumerate cameras now that permission is active
-            this.enumerateAvailableCameras();
-
-            // Initialize ZXing browser reader if available
-            if (window.ZXing && !this.zxingReader) {
-                try {
-                    this.zxingReader = new window.ZXing.BrowserQRCodeReader();
-                } catch (e) {}
-            }
-
-            // Start continuous frame scan loop
-            this.startScanLoop();
-
             const isRear = this.currentFacingMode === 'environment';
-            window.app.showToast(`Active on ${isRear ? 'Rear (Back)' : 'Front'} Camera. Point at QR pass.`, 'success');
+            window.app.showToast(`Camera active (${isRear ? 'Rear' : 'Front'}). Aim at member QR pass.`, 'success');
 
         } catch (err) {
-            console.error('Camera start error:', err);
+            console.error('Camera startup error:', err);
             await this.stopCamera();
             if (statusIndicator) {
                 statusIndicator.innerText = 'CAMERA BLOCKED';
                 statusIndicator.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950 text-red-600 font-mono';
             }
-            window.app.showToast('Camera access blocked. Please check browser camera permissions.', 'warning');
+            window.app.showToast('Camera blocked. Please check browser permissions and allow camera access.', 'warning');
         }
     }
 
     async stopCamera() {
         this.isScanning = false;
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
+        if (this.html5QrCode) {
+            try {
+                if (this.html5QrCode.isScanning) {
+                    await this.html5QrCode.stop();
+                }
+            } catch (e) {
+                console.warn('Error stopping Html5Qrcode:', e);
+            }
         }
 
-        if (this.cameraStream) {
-            this.cameraStream.getTracks().forEach(track => {
-                try { track.stop(); } catch (e) {}
-            });
-            this.cameraStream = null;
-        }
-
-        const video = document.getElementById('scanner-video');
+        const readerDiv = document.getElementById('qr-reader');
         const placeholder = document.getElementById('qr-reader-placeholder');
         const reticle = document.getElementById('camera-reticle');
         const btnText = document.getElementById('toggle-camera-text');
         const toggleBtn = document.getElementById('toggle-camera-btn');
         const statusIndicator = document.getElementById('camera-status-indicator');
 
-        if (video) {
-            video.srcObject = null;
-            video.classList.add('hidden');
+        if (readerDiv) {
+            readerDiv.classList.add('hidden');
+            readerDiv.innerHTML = '';
         }
+        this.html5QrCode = null;
+
         if (reticle) reticle.classList.add('hidden');
         if (placeholder) placeholder.classList.remove('hidden');
 
@@ -428,104 +437,15 @@ class ScannerController {
         }
     }
 
-    async enumerateAvailableCameras() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
-        try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            const cameraSelect = document.getElementById('camera-select');
-            if (videoDevices.length > 0 && cameraSelect) {
-                this.availableCameras = videoDevices;
-                cameraSelect.innerHTML = `<option value="">Auto-Detect (${this.currentFacingMode === 'environment' ? 'Rear Camera' : 'Front Camera'})</option>` +
-                    videoDevices.map((d, idx) => {
-                        const label = d.label || `Camera ${idx + 1}`;
-                        const isSelected = this.selectedCameraId === d.deviceId;
-                        return `<option value="${d.deviceId}" ${isSelected ? 'selected' : ''}>${label}</option>`;
-                    }).join('');
-            }
-        } catch (e) {
-            console.warn('Camera enumeration error:', e);
-        }
-    }
-
-    /* ------------------------------------------------------------- */
-    /* 4. High-Speed Triple-Engine Frame Scan Loop                   */
-    /* ------------------------------------------------------------- */
-    startScanLoop() {
-        const video = document.getElementById('scanner-video');
-
-        const scanFrame = async () => {
-            if (!this.isScanning || !video) return;
-
-            if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth > 0) {
-                const now = Date.now();
-
-                // 1. Hardware BarcodeDetector (Chrome / Android / Samsung / Edge GPU) - 60 FPS
-                if (this.barcodeDetector && !this.scanCooldown) {
-                    try {
-                        const barcodes = await this.barcodeDetector.detect(video);
-                        if (barcodes.length > 0 && barcodes[0].rawValue) {
-                            this.onScanSuccess(barcodes[0].rawValue);
-                            this.animationFrameId = requestAnimationFrame(scanFrame);
-                            return;
-                        }
-                    } catch (e) {}
-                }
-
-                // 2. High-Performance Canvas Scan (jsQR + ZXing) - Full frame, ~15 FPS
-                if (!this.scanCooldown && (now - this.lastFrameScanTime > 65)) {
-                    this.lastFrameScanTime = now;
-                    try {
-                        const vw = video.videoWidth;
-                        const vh = video.videoHeight;
-
-                        // Target resolution: 640-720px max dimension is ideal for mobile CPU & QR accuracy
-                        const maxDim = Math.max(vw, vh);
-                        const scale = maxDim > 720 ? (720 / maxDim) : 1;
-                        const scanW = Math.round(vw * scale);
-                        const scanH = Math.round(vh * scale);
-
-                        if (this.scanCanvas.width !== scanW || this.scanCanvas.height !== scanH) {
-                            this.scanCanvas.width = scanW;
-                            this.scanCanvas.height = scanH;
-                        }
-
-                        // Full frame draw (NO center crop lock - anywhere on screen will scan!)
-                        this.scanCtx.drawImage(video, 0, 0, scanW, scanH);
-                        const imgData = this.scanCtx.getImageData(0, 0, scanW, scanH);
-
-                        // Try jsQR with regular + inverted detection
-                        if (window.jsQR) {
-                            const code = window.jsQR(imgData.data, scanW, scanH, {
-                                inversionAttempts: "attemptBoth"
-                            });
-                            if (code && code.data) {
-                                this.onScanSuccess(code.data);
-                                this.animationFrameId = requestAnimationFrame(scanFrame);
-                                return;
-                            }
-                        }
-
-                        // Try ZXing if loaded from CDN
-                        if (window.ZXing && this.zxingReader && this.scanCanvas) {
-                            try {
-                                const zxResult = this.zxingReader.decodeFromCanvas(this.scanCanvas);
-                                if (zxResult && zxResult.getText()) {
-                                    this.onScanSuccess(zxResult.getText());
-                                    this.animationFrameId = requestAnimationFrame(scanFrame);
-                                    return;
-                                }
-                            } catch (zErr) {}
-                        }
-
-                    } catch (err) {}
-                }
-            }
-
-            this.animationFrameId = requestAnimationFrame(scanFrame);
-        };
-
-        this.animationFrameId = requestAnimationFrame(scanFrame);
+    updateCameraDropdown(devices) {
+        const cameraSelect = document.getElementById('camera-select');
+        if (!cameraSelect || !devices || devices.length === 0) return;
+        cameraSelect.innerHTML = `<option value="">Auto-Detect (${this.currentFacingMode === 'environment' ? 'Rear Camera' : 'Front Camera'})</option>` +
+            devices.map((d, idx) => {
+                const label = d.label || `Camera ${idx + 1}`;
+                const isSelected = this.selectedCameraId === d.id;
+                return `<option value="${d.id}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+            }).join('');
     }
 
     onScanSuccess(decodedText) {
@@ -543,56 +463,17 @@ class ScannerController {
         if (!file) return;
 
         try {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-
-                // 1. Try BarcodeDetector on image
-                if (window.BarcodeDetector) {
-                    try {
-                        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-                        detector.detect(img).then(barcodes => {
-                            if (barcodes.length > 0 && barcodes[0].rawValue) {
-                                this.executeScan(barcodes[0].rawValue, 'image_upload');
-                                return;
-                            }
-                        }).catch(() => {});
-                    } catch (e) {}
-                }
-
-                // 2. Try jsQR
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                if (window.jsQR) {
-                    const code = window.jsQR(imgData.data, canvas.width, canvas.height, {
-                        inversionAttempts: "attemptBoth"
-                    });
-                    if (code && code.data) {
-                        this.executeScan(code.data, 'image_upload');
-                        return;
-                    }
-                }
-
-                // 3. Try ZXing
-                if (window.ZXing && this.zxingReader) {
-                    try {
-                        const zx = this.zxingReader.decodeFromCanvas(canvas);
-                        if (zx && zx.getText()) {
-                            this.executeScan(zx.getText(), 'image_upload');
-                            return;
-                        }
-                    } catch (e) {}
-                }
-
-                window.app.showToast('No readable QR code found in that image.', 'warning');
-            };
-            img.src = URL.createObjectURL(file);
+            window.app.showToast('Decoding snapshot photo...', 'info');
+            const tempReader = new Html5Qrcode("qr-reader");
+            const decodedText = await tempReader.scanFile(file, true);
+            if (decodedText) {
+                this.executeScan(decodedText, 'image_upload');
+            } else {
+                window.app.showToast('No readable QR code found in photo.', 'warning');
+            }
         } catch (err) {
-            console.error('File scan failed:', err);
-            window.app.showToast('Could not process photo file.', 'error');
+            console.warn('File decode error:', err);
+            window.app.showToast('No readable QR code found in photo. Make sure the code is well-lit and in focus.', 'warning');
         } finally {
             e.target.value = '';
         }

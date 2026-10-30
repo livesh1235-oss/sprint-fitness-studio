@@ -444,39 +444,98 @@
     // Public QR Code Generator Helper
     window.QRCodeLib = {
         renderCanvas: function(canvas, text, options = {}) {
-            const size = options.size || 220;
+            const size = options.size || 256;
             const darkColor = options.darkColor || "#000000";
             const lightColor = options.lightColor || "#ffffff";
-            const margin = options.margin !== undefined ? options.margin : 2; // Standard QR quiet zone
+            const margin = options.margin !== undefined ? options.margin : 4; // ISO 18004 standard: 4-module quiet zone
 
-            const qr = new QRCodeModel(0, 1); // Level M (15% error correction for reliable camera scans)
+            const qr = new QRCodeModel(0, 1); // Level M (15% error correction)
             qr.addData(text);
             qr.make();
 
             const count = qr.getModuleCount();
             const totalModules = count + (margin * 2);
-            canvas.width = size;
-            canvas.height = size;
+            // Integer pixel alignment to prevent sub-pixel antialiasing blur
+            const moduleSize = Math.max(1, Math.floor(size / totalModules));
+            const actualSize = moduleSize * totalModules;
+
+            canvas.width = actualSize;
+            canvas.height = actualSize;
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            canvas.style.imageRendering = 'pixelated';
+
             const ctx = canvas.getContext('2d');
-            const tileW = size / totalModules;
-            const tileH = size / totalModules;
+            ctx.imageSmoothingEnabled = false;
 
             ctx.fillStyle = lightColor;
-            ctx.fillRect(0, 0, size, size);
+            ctx.fillRect(0, 0, actualSize, actualSize);
 
             ctx.fillStyle = darkColor;
             for (let r = 0; r < count; r++) {
                 for (let c = 0; c < count; c++) {
                     if (qr.isDark(r, c)) {
                         ctx.fillRect(
-                            Math.floor((c + margin) * tileW),
-                            Math.floor((r + margin) * tileH),
-                            Math.ceil(tileW),
-                            Math.ceil(tileH)
+                            (c + margin) * moduleSize,
+                            (r + margin) * moduleSize,
+                            moduleSize,
+                            moduleSize
                         );
                     }
                 }
             }
+        },
+
+        toDataURL: function(text, options = {}) {
+            const canvas = document.createElement('canvas');
+            this.renderCanvas(canvas, text, options);
+            return canvas.toDataURL('image/png');
+        },
+
+        renderToElement: function(element, text, options = {}) {
+            if (typeof element === 'string') {
+                element = document.getElementById(element);
+            }
+            if (!element) return;
+            element.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            this.renderCanvas(canvas, text, options);
+            element.appendChild(canvas);
+            return canvas;
         }
     };
+
+    // Standard drop-in replacement for window.QRCode (fixing legacy zero-margin bug)
+    window.QRCode = function(element, options) {
+        if (typeof options === 'string') {
+            options = { text: options };
+        }
+        options = options || {};
+        const container = typeof element === 'string' ? document.getElementById(element) : element;
+        const size = options.width || 256;
+        
+        function render(text) {
+            if (!container) return;
+            QRCodeLib.renderToElement(container, text, {
+                size: size,
+                margin: 4,
+                darkColor: options.colorDark || '#000000',
+                lightColor: options.colorLight || '#ffffff'
+            });
+        }
+
+        if (options.text) {
+            render(options.text);
+        }
+
+        return {
+            clear: function() {
+                if (container) container.innerHTML = '';
+            },
+            makeCode: function(text) {
+                render(text);
+            }
+        };
+    };
+    window.QRCode.CorrectLevel = { L: 1, M: 0, Q: 3, H: 2 };
 })(window);

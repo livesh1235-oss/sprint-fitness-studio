@@ -556,6 +556,28 @@ def get_member(member_id):
     conn.close()
     return member
 
+def generate_member_qr_png(member_id, qr_token):
+    """Generate high-contrast, ISO-compliant PNG QR codes with 4-module quiet zone."""
+    try:
+        import qrcode
+        qr_dir = os.path.join(os.path.dirname(__file__), 'static', 'qr')
+        os.makedirs(qr_dir, exist_ok=True)
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=10,
+            border=4
+        )
+        qr.add_data(qr_token)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        img.save(os.path.join(qr_dir, f"{qr_token}.png"))
+        img.save(os.path.join(qr_dir, f"{member_id}.png"))
+        num = member_id.replace('GYM-', '')
+        img.save(os.path.join(qr_dir, f"{num}.png"))
+    except Exception as e:
+        print(f"Error generating QR PNG for {member_id}: {e}")
+
 def create_member(data):
     conn = get_connection()
     c = conn.cursor()
@@ -596,6 +618,10 @@ def create_member(data):
     ))
     conn.commit()
     conn.close()
+
+    # Pre-render QR image asset
+    generate_member_qr_png(new_id, qr_token)
+
     return get_member(new_id)
 
 def update_member(member_id, data):

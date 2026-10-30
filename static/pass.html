@@ -95,7 +95,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/js/qrcode.min.js"></script>
+    <script src="/js/qrcodelib.js?v=6.0"></script>
     <script>
         let currentMember = null;
         let qrInstance = null;
@@ -148,19 +148,32 @@
                     daysLeftEl.className = 'font-bold text-red-400 text-xs mt-0.5';
                 }
 
-                // Render High-Resolution Standard QR Code
+                // Render High-Resolution Standard QR Code with ISO 4-Module Quiet Zone
                 const qrBox = document.getElementById('qrcode-box');
                 qrBox.innerHTML = '';
-                if (window.QRCode) {
-                    qrInstance = new QRCode(qrBox, {
-                        text: m.qr_code_token || m.id,
-                        width: 220,
-                        height: 220,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.M
+                const qrToken = m.qr_code_token || m.id;
+
+                // First render via fast client canvas
+                if (window.QRCodeLib) {
+                    QRCodeLib.renderToElement(qrBox, qrToken, {
+                        size: 220,
+                        margin: 4,
+                        darkColor: '#000000',
+                        lightColor: '#ffffff'
                     });
                 }
+
+                // Also attempt loading pre-rendered crisp PNG
+                const pngImg = new Image();
+                pngImg.crossOrigin = 'anonymous';
+                pngImg.src = `/qr/${encodeURIComponent(qrToken)}.png`;
+                pngImg.alt = `QR Code for ${m.name}`;
+                pngImg.className = 'w-[220px] h-[220px] block mx-auto object-contain';
+                pngImg.style.imageRendering = 'pixelated';
+                pngImg.onload = () => {
+                    qrBox.innerHTML = '';
+                    qrBox.appendChild(pngImg);
+                };
 
             } catch (err) {
                 console.error(err);

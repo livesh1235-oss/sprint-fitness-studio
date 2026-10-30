@@ -39,7 +39,15 @@ def get_lan_ip():
 
 def get_public_url():
     """Get the public URL of this deployment (cloud URL or LAN IP for local)."""
-    # Active tunnel (for 5G/cellular mobile access)
+    # Cloud Hosts (Render, Railway, Fly, Heroku, etc.)
+    if RENDER_EXTERNAL_URL:
+        return RENDER_EXTERNAL_URL.rstrip('/')
+    if RAILWAY_PUBLIC_DOMAIN:
+        return f'https://{RAILWAY_PUBLIC_DOMAIN}'
+    if os.environ.get('PUBLIC_URL'):
+        return os.environ.get('PUBLIC_URL').rstrip('/')
+
+    # Active local tunnel (for cellular mobile access during dev)
     tunnel_file = os.path.join(os.path.dirname(__file__), '.tunnel_url')
     if os.path.exists(tunnel_file):
         try:
@@ -50,13 +58,7 @@ def get_public_url():
         except Exception:
             pass
 
-    # Render.com
-    if RENDER_EXTERNAL_URL:
-        return RENDER_EXTERNAL_URL.rstrip('/')
-    # Railway.app
-    if RAILWAY_PUBLIC_DOMAIN:
-        return f'https://{RAILWAY_PUBLIC_DOMAIN}'
-    # Local - try LAN IP
+    # Local fallback
     return f'http://{get_lan_ip()}:{PORT}'
 
 class GymRequestHandler(http.server.BaseHTTPRequestHandler):
