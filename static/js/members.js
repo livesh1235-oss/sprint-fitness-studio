@@ -330,14 +330,28 @@ class MembersController {
             const passLinkInput = document.getElementById('pass-share-link');
             if (passLinkInput) passLinkInput.value = passUrl;
 
-            // Render QR Code onto Canvas
-            const canvas = document.getElementById('pass-qr-canvas');
-            if (canvas && window.QRCodeLib) {
-                window.QRCodeLib.renderCanvas(canvas, member.qr_code_token, {
-                    size: 160,
-                    darkColor: '#0f172a',
-                    lightColor: '#ffffff'
+            // Render QR Code
+            const qrBox = document.getElementById('pass-qr-box');
+            if (qrBox && window.QRCode) {
+                qrBox.innerHTML = '';
+                new QRCode(qrBox, {
+                    text: member.qr_code_token || member.id,
+                    width: 170,
+                    height: 170,
+                    colorDark: '#0f172a',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
                 });
+            } else {
+                const canvas = document.getElementById('pass-qr-canvas');
+                if (canvas && window.QRCodeLib) {
+                    canvas.classList.remove('hidden');
+                    window.QRCodeLib.renderCanvas(canvas, member.qr_code_token, {
+                        size: 170,
+                        darkColor: '#0f172a',
+                        lightColor: '#ffffff'
+                    });
+                }
             }
 
             this.currentPassMember = member;
@@ -377,53 +391,57 @@ class MembersController {
 
     downloadPassImage() {
         if (!this.currentPassMember) return;
-        const qrCanvas = document.getElementById('pass-qr-canvas');
-        if (!qrCanvas) return;
+        const qrEl = document.querySelector('#pass-qr-box img') || document.querySelector('#pass-qr-box canvas') || document.getElementById('pass-qr-canvas');
+        if (!qrEl) return;
 
         const exportCanvas = document.createElement('canvas');
         exportCanvas.width = 600;
-        exportCanvas.height = 800;
+        exportCanvas.height = 840;
         const ctx = exportCanvas.getContext('2d');
 
         // Background
-        const bgGrad = ctx.createLinearGradient(0, 0, 0, 800);
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, 840);
         bgGrad.addColorStop(0, '#090d16');
         bgGrad.addColorStop(1, '#020617');
         ctx.fillStyle = bgGrad;
-        if (ctx.roundRect) ctx.roundRect(0, 0, 600, 800, 32);
-        else ctx.rect(0, 0, 600, 800);
+        if (ctx.roundRect) ctx.roundRect(0, 0, 600, 840, 32);
+        else ctx.rect(0, 0, 600, 840);
         ctx.fill();
 
         // Header
         ctx.fillStyle = '#f97316';
         ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('SPRINT FITNESS STUDIO', 300, 60);
+        ctx.fillText('SPRINT FITNESS STUDIO', 300, 55);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 26px sans-serif';
-        ctx.fillText('OFFICIAL DIGITAL PASS', 300, 95);
+        ctx.font = 'bold 24px sans-serif';
+        ctx.fillText('OFFICIAL DIGITAL ACCESS PASS', 300, 88);
 
         // White card for QR
         ctx.fillStyle = '#ffffff';
-        if (ctx.roundRect) ctx.roundRect(80, 130, 440, 440, 24);
-        else ctx.fillRect(80, 130, 440, 440);
+        if (ctx.roundRect) ctx.roundRect(80, 115, 440, 440, 24);
+        else ctx.fillRect(80, 115, 440, 440);
         ctx.fill();
 
-        ctx.drawImage(qrCanvas, 120, 170, 360, 360);
+        ctx.drawImage(qrEl, 120, 155, 360, 360);
 
         // Member Details
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 28px sans-serif';
-        ctx.fillText(this.currentPassMember.name, 300, 630);
+        ctx.fillText(this.currentPassMember.name, 300, 600);
 
-        ctx.fillStyle = '#f97316';
-        ctx.font = 'bold 18px monospace';
-        ctx.fillText(`${this.currentPassMember.id}  ·  ${this.currentPassMember.plan_name}`, 300, 665);
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 26px monospace';
+        ctx.fillText(`REG #: ${this.currentPassMember.id}`, 300, 640);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(`Phone: ${this.currentPassMember.phone}  ·  Plan: ${this.currentPassMember.plan_name}`, 300, 675);
 
         ctx.fillStyle = '#10b981';
         ctx.font = 'bold 16px sans-serif';
-        ctx.fillText(`● ACTIVE MEMBER · Valid Until ${this.currentPassMember.expiry_date}`, 300, 710);
+        ctx.fillText(`● ACTIVE MEMBER · Valid Until ${this.currentPassMember.expiry_date}`, 300, 715);
 
         const a = document.createElement('a');
         a.download = `SprintPass_${this.currentPassMember.id}_${this.currentPassMember.name.replace(/\s+/g, '_')}.png`;

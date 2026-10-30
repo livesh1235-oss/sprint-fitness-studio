@@ -240,6 +240,19 @@ def get_member_by_qr_or_id(query):
         ''', (num_id, f"QR-{num_id}", f"%{clean_q}%"))
         row = c.fetchone()
 
+    # 4. Clean phone number match (handles country codes +91, spaces, dashes)
+    if not row:
+        digits_only = re.sub(r'\D', '', query)
+        if len(digits_only) >= 7:
+            last_digits = digits_only[-10:] if len(digits_only) >= 10 else digits_only
+            c.execute('''
+            SELECT m.*, p.name as plan_name, p.duration_days, p.price as plan_price
+            FROM members m
+            LEFT JOIN plans p ON m.plan_id = p.id
+            WHERE REPLACE(REPLACE(REPLACE(REPLACE(m.phone, ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?
+            ''', (f"%{last_digits}%",))
+            row = c.fetchone()
+
     conn.close()
     if not row:
         return None
