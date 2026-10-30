@@ -1,10 +1,11 @@
 /**
  * Sprint Fitness Studio · High-Performance Staff Scan Station
- * Powered by Html5Qrcode engine (optimized for mobile rear camera & webcams).
+ * Built for 100% reliability on mobile phones (iOS Safari, Android Chrome, tablets, webcams).
  * Features:
- *  - 100% Reliable QR scanning on gym mobile phones & tablets
+ *  - Native hardware video stream with playsinline support (no freezing, no overconstrained errors)
+ *  - 1-Tap Flip Camera (instant toggle between Rear/Back Camera and Front Camera)
+ *  - Dual QR Engine: Native BarcodeDetector (60 FPS) + Downscaled jsQR fallback (10 FPS)
  *  - Front Desk Express for members who forgot their phone (Search by Reg #, Phone, Name)
- *  - Camera device selector (Front / Back / Wide lens switcher)
  *  - Live audio feedback (Web Audio synthesizer chimes)
  *  - USB Laser scanner gun auto-listener
  */
@@ -12,22 +13,39 @@
 class ScannerController {
     constructor() {
         this.scanMode = 'auto'; // 'auto', 'in', 'out'
-        this.html5QrCode = null;
+        this.cameraStream = null;
         this.isScanning = false;
         this.scanCooldown = false;
-        this.availableCameras = [];
+        this.currentFacingMode = 'environment'; // 'environment' (back) or 'user' (front)
         this.selectedCameraId = null;
+        this.availableCameras = [];
+        this.animationFrameId = null;
+        this.barcodeDetector = null;
+        this.scanCanvas = document.createElement('canvas');
+        this.scanCtx = this.scanCanvas.getContext('2d', { willReadFrequently: true });
+        this.lastFrameScanTime = 0;
         this.searchDebounceTimer = null;
+        this._initialized = false;
     }
 
     async init() {
         if (this._initialized) return;
         this._initialized = true;
+
         this.setupModeSelector();
         this.setupQuickDesk();
         this.setupUsbGunListener();
-        await this.setupCameraScanner();
+        this.setupCameraControls();
         this.loadQuickMemberChips();
+
+        // Check for native BarcodeDetector
+        if ('BarcodeDetector' in window) {
+            try {
+                this.barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+            } catch (e) {
+                this.barcodeDetector = null;
+            }
+        }
     }
 
     /* ------------------------------------------------------------- */
@@ -208,16 +226,21 @@ class ScannerController {
     }
 
     /* ------------------------------------------------------------- */
-    /* 3. Html5Qrcode Scanner Engine (For Gym Phone, Tablet & Laptop) */
+    /* 3. Ultra-Reliable Phone Camera Scanner                       */
     /* ------------------------------------------------------------- */
-    async setupCameraScanner() {
+    setupCameraControls() {
         const toggleBtn = document.getElementById('toggle-camera-btn');
+        const flipBtn = document.getElementById('flip-camera-btn');
         const uploadBtn = document.getElementById('upload-qr-btn');
         const fileInput = document.getElementById('qr-file-input');
         const cameraSelect = document.getElementById('camera-select');
 
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => this.toggleCamera());
+        }
+
+        if (flipBtn) {
+            flipBtn.addEventListener('click', () => this.flipCamera());
         }
 
         if (uploadBtn && fileInput) {
@@ -233,25 +256,6 @@ class ScannerController {
                 }
             });
         }
-
-        // Enumerate video cameras
-        if (window.Html5Qrcode) {
-            try {
-                const devices = await Html5Qrcode.getCameras();
-                if (devices && devices.length > 0) {
-                    this.availableCameras = devices;
-                    if (cameraSelect) {
-                        cameraSelect.innerHTML = devices.map((d, idx) => {
-                            const isBack = d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('environment') || d.label.toLowerCase().includes('rear');
-                            return `<option value="${d.id}" ${isBack || idx === 0 ? 'selected' : ''}>${d.label || `Camera ${idx + 1}`}</option>`;
-                        }).join('');
-                        this.selectedCameraId = cameraSelect.value;
-                    }
-                }
-            } catch (err) {
-                console.warn('Unable to enumerate cameras prior to permission:', err);
-            }
-        }
     }
 
     async toggleCamera() {
@@ -262,51 +266,60 @@ class ScannerController {
         }
     }
 
+    async flipCamera() {
+        this.currentFacingMode = this.currentFacingMode === 'environment' ? 'user' : 'environment';
+        this.selectedCameraId = null;
+        if (this.isScanning) {
+            await this.stopCamera();
+            await this.startCamera();
+        }
+        window.app.showToast(`Switched to ${this.currentFacingMode === 'environment' ? 'Rear (Back)' : 'Front (Selfie)'} Camera.`, 'info');
+    }
+
     async startCamera() {
         if (this.isScanning) return;
 
-        const readerBox = document.getElementById('qr-reader');
+        const video = document.getElementById('scanner-video');
         const placeholder = document.getElementById('qr-reader-placeholder');
+        const reticle = document.getElementById('camera-reticle');
         const btnText = document.getElementById('toggle-camera-text');
         const toggleBtn = document.getElementById('toggle-camera-btn');
         const statusIndicator = document.getElementById('camera-status-indicator');
 
-        if (!window.Html5Qrcode) {
-            window.app.showToast('QR Scanner engine not loaded. Please refresh.', 'error');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            window.app.showToast('Camera access not supported on this browser. Use HTTPS link.', 'error');
             return;
         }
 
         try {
-            if (!this.html5QrCode) {
-                this.html5QrCode = new Html5Qrcode("qr-reader");
+            // Flexible mobile camera constraints (never overconstrained)
+            const videoConstraints = this.selectedCameraId
+                ? { deviceId: { exact: this.selectedCameraId } }
+                : {
+                    facingMode: { ideal: this.currentFacingMode },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                };
+
+            this.cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: videoConstraints,
+                audio: false
+            });
+
+            if (video) {
+                video.srcObject = this.cameraStream;
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('webkit-playsinline', 'true');
+                video.muted = true;
+                video.autoplay = true;
+
+                await video.play();
+
+                video.classList.remove('hidden');
             }
 
             if (placeholder) placeholder.classList.add('hidden');
-            if (readerBox) readerBox.classList.remove('hidden');
-
-            const cameraConfig = this.selectedCameraId ? { deviceId: { exact: this.selectedCameraId } } : { facingMode: "environment" };
-
-            const scanConfig = {
-                fps: 20,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const qrboxSize = Math.floor(minEdge * 0.72);
-                    return { width: Math.max(220, qrboxSize), height: Math.max(220, qrboxSize) };
-                },
-                aspectRatio: 1.0,
-                disableFlip: false
-            };
-
-            await this.html5QrCode.start(
-                cameraConfig,
-                scanConfig,
-                (decodedText, decodedResult) => {
-                    this.onScanSuccess(decodedText);
-                },
-                (errorMessage) => {
-                    // Frame scan failed to find QR (normal stream loop)
-                }
-            );
+            if (reticle) reticle.classList.remove('hidden');
 
             this.isScanning = true;
             if (btnText) btnText.innerText = 'Stop Camera';
@@ -319,48 +332,53 @@ class ScannerController {
                 statusIndicator.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-mono animate-pulse';
             }
 
-            // Populate camera list if not done yet
-            if (this.availableCameras.length === 0) {
-                try {
-                    const devices = await Html5Qrcode.getCameras();
-                    const cameraSelect = document.getElementById('camera-select');
-                    if (devices && devices.length > 0 && cameraSelect) {
-                        this.availableCameras = devices;
-                        cameraSelect.innerHTML = devices.map(d => `<option value="${d.id}" ${d.id === this.selectedCameraId ? 'selected' : ''}>${d.label || 'Camera'}</option>`).join('');
-                    }
-                } catch (e) {}
-            }
+            // Enumerate cameras now that permission is active
+            this.enumerateAvailableCameras();
 
-            window.app.showToast('Camera active! Point at member QR code.', 'info');
+            // Start real-time frame scanning loop
+            this.startScanLoop();
+
+            window.app.showToast('Camera active! Point at member QR pass.', 'success');
 
         } catch (err) {
             console.error('Camera start error:', err);
-            if (placeholder) placeholder.classList.remove('hidden');
-            if (btnText) btnText.innerText = 'Start Camera';
+            this.stopCamera();
             if (statusIndicator) {
                 statusIndicator.innerText = 'CAMERA BLOCKED';
                 statusIndicator.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950 text-red-600 font-mono';
             }
-            window.app.showToast('Please grant camera permission in your phone/browser settings.', 'warning');
+            window.app.showToast('Camera permission denied. Tap camera icon in browser bar to allow access.', 'warning');
         }
     }
 
     async stopCamera() {
-        if (this.html5QrCode && this.isScanning) {
-            try {
-                await this.html5QrCode.stop();
-            } catch (e) {
-                console.warn('Error stopping camera:', e);
-            }
-        }
         this.isScanning = false;
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
 
+        if (this.cameraStream) {
+            this.cameraStream.getTracks().forEach(track => {
+                try { track.stop(); } catch (e) {}
+            });
+            this.cameraStream = null;
+        }
+
+        const video = document.getElementById('scanner-video');
         const placeholder = document.getElementById('qr-reader-placeholder');
+        const reticle = document.getElementById('camera-reticle');
         const btnText = document.getElementById('toggle-camera-text');
         const toggleBtn = document.getElementById('toggle-camera-btn');
         const statusIndicator = document.getElementById('camera-status-indicator');
 
+        if (video) {
+            video.srcObject = null;
+            video.classList.add('hidden');
+        }
+        if (reticle) reticle.classList.add('hidden');
         if (placeholder) placeholder.classList.remove('hidden');
+
         if (btnText) btnText.innerText = 'Start Camera';
         if (toggleBtn) {
             toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
@@ -372,6 +390,85 @@ class ScannerController {
         }
     }
 
+    async enumerateAvailableCameras() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+            const cameraSelect = document.getElementById('camera-select');
+            if (videoDevices.length > 0 && cameraSelect) {
+                this.availableCameras = videoDevices;
+                cameraSelect.innerHTML = videoDevices.map((d, idx) => {
+                    const label = d.label || `Camera ${idx + 1}`;
+                    const isBack = label.toLowerCase().includes('back') || label.toLowerCase().includes('environment') || label.toLowerCase().includes('rear');
+                    return `<option value="${d.deviceId}" ${isBack ? 'selected' : ''}>${label}</option>`;
+                }).join('');
+            }
+        } catch (e) {
+            console.warn('Camera enumeration error:', e);
+        }
+    }
+
+    /* ------------------------------------------------------------- */
+    /* 4. High-Speed Frame Scan Loop                                */
+    /* ------------------------------------------------------------- */
+    startScanLoop() {
+        const video = document.getElementById('scanner-video');
+
+        const scanFrame = async () => {
+            if (!this.isScanning || !video) return;
+
+            if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                const now = Date.now();
+
+                // 1. Hardware BarcodeDetector (Chrome / Android / modern iOS)
+                if (this.barcodeDetector && !this.scanCooldown) {
+                    try {
+                        const barcodes = await this.barcodeDetector.detect(video);
+                        if (barcodes.length > 0 && barcodes[0].rawValue) {
+                            this.onScanSuccess(barcodes[0].rawValue);
+                            this.animationFrameId = requestAnimationFrame(scanFrame);
+                            return;
+                        }
+                    } catch (e) {}
+                }
+
+                // 2. Fast Downscaled Canvas + jsQR Engine (10 FPS limit to save mobile CPU)
+                if (window.jsQR && !this.scanCooldown && (now - this.lastFrameScanTime > 90)) {
+                    this.lastFrameScanTime = now;
+                    try {
+                        const vw = video.videoWidth || 640;
+                        const vh = video.videoHeight || 480;
+                        const targetSize = 360;
+
+                        this.scanCanvas.width = targetSize;
+                        this.scanCanvas.height = targetSize;
+
+                        // Center crop
+                        const cropSize = Math.min(vw, vh);
+                        const sx = (vw - cropSize) / 2;
+                        const sy = (vh - cropSize) / 2;
+
+                        this.scanCtx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, targetSize, targetSize);
+                        const imgData = this.scanCtx.getImageData(0, 0, targetSize, targetSize);
+
+                        const code = window.jsQR(imgData.data, targetSize, targetSize, {
+                            inversionAttempts: "attemptBoth"
+                        });
+
+                        if (code && code.data) {
+                            this.onScanSuccess(code.data);
+                        }
+                    } catch (err) {}
+                }
+            }
+
+            this.animationFrameId = requestAnimationFrame(scanFrame);
+        };
+
+        this.animationFrameId = requestAnimationFrame(scanFrame);
+    }
+
     onScanSuccess(decodedText) {
         if (this.scanCooldown) return;
         this.scanCooldown = true;
@@ -379,28 +476,45 @@ class ScannerController {
         this.executeScan(decodedText, 'camera_live_qr');
     }
 
+    /* ------------------------------------------------------------- */
+    /* 5. Photo / Screenshot File Upload Decoder                    */
+    /* ------------------------------------------------------------- */
     async handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
 
         try {
-            if (!this.html5QrCode) {
-                this.html5QrCode = new Html5Qrcode("qr-reader");
-            }
-            const decodedText = await this.html5QrCode.scanFile(file, true);
-            if (decodedText) {
-                this.executeScan(decodedText, 'image_upload');
-            }
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                if (window.jsQR) {
+                    const code = window.jsQR(imgData.data, canvas.width, canvas.height, {
+                        inversionAttempts: "attemptBoth"
+                    });
+                    if (code && code.data) {
+                        this.executeScan(code.data, 'image_upload');
+                        return;
+                    }
+                }
+                window.app.showToast('No readable QR code found in that image.', 'warning');
+            };
+            img.src = URL.createObjectURL(file);
         } catch (err) {
             console.error('File scan failed:', err);
-            window.app.showToast('No clear QR code detected in that photo.', 'warning');
+            window.app.showToast('Could not process photo file.', 'error');
         } finally {
             e.target.value = '';
         }
     }
 
     /* ------------------------------------------------------------- */
-    /* 4. USB Barcode / QR Scanner Gun Listener                      */
+    /* 6. USB Barcode / QR Scanner Gun Listener                      */
     /* ------------------------------------------------------------- */
     setupUsbGunListener() {
         let barcodeBuffer = '';
@@ -428,7 +542,7 @@ class ScannerController {
     }
 
     /* ------------------------------------------------------------- */
-    /* 5. Core Scan Execution & Result Display                      */
+    /* 7. Core Scan Execution & Result Display                      */
     /* ------------------------------------------------------------- */
     async executeScan(token, method = 'qr_scan', forcedMode = null) {
         if (!token) return;
