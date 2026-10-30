@@ -143,6 +143,37 @@ class GymRequestHandler(http.server.BaseHTTPRequestHandler):
             )
             return self.send_json(logs)
 
+        if path == '/api/backup':
+            db_path = database.DB_PATH
+            if not os.path.exists(db_path):
+                return self.send_json({'error': 'Database file not found'}, status_code=404)
+            with open(db_path, 'rb') as f:
+                db_data = f.read()
+            filename = f"sprint_fitness_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+            self.send_header('Content-Length', str(len(db_data)))
+            self.end_headers()
+            self.wfile.write(db_data)
+            return
+
+        if path == '/api/members/export':
+            members = database.get_members()
+            csv_lines = ['Member ID,Name,Phone,Email,Plan,Price,Join Date,Expiry Date,Days Left,Status,Emergency Contact,Notes']
+            for m in members:
+                line = f"{m['id']},\"{m['name']}\",{m['phone']},{m['email']},\"{m['plan_name']}\",{m['plan_price']},{m['join_date']},{m['expiry_date']},{m['days_left']},{m['status']},\"{m.get('emergency_contact','')}\",\"{m.get('notes','')}\""
+                csv_lines.append(line)
+            csv_data = '\n'.join(csv_lines).encode('utf-8')
+            filename = f"sprint_members_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/csv; charset=utf-8')
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+            self.send_header('Content-Length', str(len(csv_data)))
+            self.end_headers()
+            self.wfile.write(csv_data)
+            return
+
         if path == '/api/attendance/export':
             filter_date = params.get('date', [None])[0]
             start_date = params.get('start_date', [None])[0]
@@ -186,6 +217,25 @@ class GymRequestHandler(http.server.BaseHTTPRequestHandler):
             payload = json.loads(post_body)
         except Exception:
             payload = {}
+
+        if path == '/api/restore':
+            raw_bytes = b''
+            if isinstance(payload, dict) and payload.get('db_base64'):
+                import base64
+                raw_bytes = base64.b64decode(payload['db_base64'])
+            elif post_body:
+                raw_bytes = post_body.encode('latin1')
+            if len(raw_bytes) < 100:
+                return self.send_json({'success': False, 'error': 'Invalid backup file content.'}, status_code=400)
+            temp_db = database.DB_PATH + '.restore'
+            with open(temp_db, 'wb') as f:
+                f.write(raw_bytes)
+            with open(temp_db, 'rb') as f:
+                if f.read(16) != b'SQLite format 3\x00':
+                    os.remove(temp_db)
+                    return self.send_json({'success': False, 'error': 'File is not a valid SQLite database backup.'}, status_code=400)
+            os.replace(temp_db, database.DB_PATH)
+            return self.send_json({'success': True, 'message': 'Database restored successfully!'})
 
         if path == '/api/scan':
             token = payload.get('token', '').strip()
