@@ -1,6 +1,6 @@
 # Sprint Fitness Studio · Attendance & Access Control Platform
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/livesh1235-oss/sprint-fitness-studio)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sprintfitnessstudiospf-hue/sprint-fitness-studio)
 
 A modern, high-performance, and secure web application for Sprint Fitness Studio gym attendance tracking and membership management. Built with Python 3 and modern ES6+ web technologies with zero external dependencies.
 
