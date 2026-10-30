@@ -320,7 +320,9 @@ class MembersController {
             if (isLocal) {
                 try {
                     const net = await api.getNetworkInfo();
-                    if (net && net.lan_ip) {
+                    if (net && net.public_url && !net.public_url.includes('127.0.0.1')) {
+                        passUrl = `${net.public_url}/pass?id=${member.id}`;
+                    } else if (net && net.lan_ip) {
                         passUrl = `http://${net.lan_ip}:${net.port || 8080}/pass?id=${member.id}`;
                     }
                 } catch (e) {}

@@ -39,6 +39,17 @@ def get_lan_ip():
 
 def get_public_url():
     """Get the public URL of this deployment (cloud URL or LAN IP for local)."""
+    # Active tunnel (for 5G/cellular mobile access)
+    tunnel_file = os.path.join(os.path.dirname(__file__), '.tunnel_url')
+    if os.path.exists(tunnel_file):
+        try:
+            with open(tunnel_file, 'r') as f:
+                turl = f.read().strip()
+                if turl:
+                    return turl.rstrip('/')
+        except Exception:
+            pass
+
     # Render.com
     if RENDER_EXTERNAL_URL:
         return RENDER_EXTERNAL_URL.rstrip('/')
@@ -83,7 +94,7 @@ class GymRequestHandler(http.server.BaseHTTPRequestHandler):
             return self.send_json({'status': 'ok', 'timestamp': datetime.now().isoformat()})
 
         if path == '/api/network-info':
-            return self.send_json({'lan_ip': get_lan_ip(), 'port': PORT})
+            return self.send_json({'lan_ip': get_lan_ip(), 'port': PORT, 'public_url': get_public_url()})
 
         if path == '/api/stats':
             stats = database.get_dashboard_stats()
