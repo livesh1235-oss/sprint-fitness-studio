@@ -229,6 +229,31 @@ def get_member_by_qr_or_id(query):
             ''', (formatted_id, f"QR-{formatted_id}"))
             row = c.fetchone()
 
+    # 2b. Extract URL parameter ?id=... or &id=...
+    if not row:
+        url_match = re.search(r'[?&]id=([^&#]+)', query, re.IGNORECASE)
+        if url_match:
+            param_val = url_match.group(1).strip()
+            # If numeric only, e.g. 1009 -> GYM-1009
+            target_ids = [param_val.upper()]
+            if param_val.isdigit():
+                target_ids.append(f"GYM-{param_val}")
+                target_ids.append(f"QR-GYM-{param_val}")
+            elif param_val.upper().startswith('GYM'):
+                clean_id = param_val.upper() if '-' in param_val else param_val.upper().replace('GYM', 'GYM-')
+                target_ids.append(clean_id)
+                target_ids.append(f"QR-{clean_id}")
+            for tid in target_ids:
+                c.execute('''
+                SELECT m.*, p.name as plan_name, p.duration_days, p.price as plan_price
+                FROM members m
+                LEFT JOIN plans p ON m.plan_id = p.id
+                WHERE UPPER(m.id) = ? OR UPPER(m.qr_code_token) = ?
+                ''', (tid, tid))
+                row = c.fetchone()
+                if row:
+                    break
+
     # 3. Numeric ID only (e.g. user typed "1009", "1007", "1001")
     if not row and clean_q.isdigit():
         num_id = f"GYM-{clean_q}"

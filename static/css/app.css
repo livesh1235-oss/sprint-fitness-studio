@@ -38,6 +38,33 @@ body {
     background: #0f172a;
 }
 
+/* Html5Qrcode Modern Viewfinder Styling */
+#qr-reader {
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    position: relative !important;
+}
+#qr-reader video {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 380px !important;
+    object-fit: cover !important;
+    border-radius: 1rem !important;
+}
+#qr-reader__scan_region {
+    background: transparent !important;
+}
+#qr-reader__dashboard {
+    display: none !important;
+}
+#qr-reader__status_span {
+    display: none !important;
+}
+#qr-shaded-region {
+    border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
 .scanner-laser {
     position: absolute;
     left: 10%;
